@@ -1,11 +1,11 @@
-# 📮 Go-Smtp
+# 📮 CMX SMTP
 
 [![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 [![SMTP](https://img.shields.io/badge/SMTP-587%20%7C%2025-6f42c1)](https://www.rfc-editor.org/rfc/rfc5321)
 [![Security](https://img.shields.io/badge/TLS-STARTTLS-success?logo=letsencrypt&logoColor=white)](https://datatracker.ietf.org/doc/html/rfc3207)
 
-> 🛠️ A lightweight, self-hosted Go SMTP submission and direct-MX delivery server for `example.com`.
+> 🛠️ **CMX SMTP** is a lightweight, self-hosted Go SMTP submission and direct-MX delivery server for `example.com`.
 
 | Capability | Status |
 |---|---:|
