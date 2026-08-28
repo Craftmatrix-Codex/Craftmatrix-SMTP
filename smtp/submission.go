@@ -2,6 +2,7 @@ package smtp
 
 import (
 	"crypto/tls"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -131,8 +132,26 @@ func (a *loginServer) Next(response []byte) ([]byte, bool, error) {
 	return nil, true, nil
 }
 func TLSConfig(cfg Config) (*tls.Config, error) {
-	if cfg.TLSCertFile == "" && cfg.TLSKeyFile == "" {
+	if cfg.TLSCertFile == "" && cfg.TLSKeyFile == "" && cfg.TLSCertBase64 == "" && cfg.TLSKeyBase64 == "" {
 		return nil, nil
+	}
+	if cfg.TLSCertBase64 != "" || cfg.TLSKeyBase64 != "" {
+		if cfg.TLSCertBase64 == "" || cfg.TLSKeyBase64 == "" {
+			return nil, fmt.Errorf("SMTP_TLS_CERT_BASE64 and SMTP_TLS_KEY_BASE64 must both be set")
+		}
+		certPEM, err := base64.StdEncoding.DecodeString(cfg.TLSCertBase64)
+		if err != nil {
+			return nil, fmt.Errorf("decode SMTP_TLS_CERT_BASE64: %w", err)
+		}
+		keyPEM, err := base64.StdEncoding.DecodeString(cfg.TLSKeyBase64)
+		if err != nil {
+			return nil, fmt.Errorf("decode SMTP_TLS_KEY_BASE64: %w", err)
+		}
+		cert, err := tls.X509KeyPair(certPEM, keyPEM)
+		if err != nil {
+			return nil, err
+		}
+		return &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}, nil
 	}
 	if cfg.TLSCertFile == "" || cfg.TLSKeyFile == "" {
 		return nil, fmt.Errorf("SMTP_TLS_CERT_FILE and SMTP_TLS_KEY_FILE must both be set")
