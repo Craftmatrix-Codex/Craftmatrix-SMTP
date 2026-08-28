@@ -1,6 +1,6 @@
 services:
   go-smtp:
-    build: .
+    build: https://github.com/Craftmatrix-Codex/Go-Smtp.git#main
     restart: unless-stopped
     environment:
       HTTP_ADDR: :8080
@@ -15,19 +15,12 @@ services:
       SMTP_RELAY_PORT: ${SMTP_RELAY_PORT:-587}
       SMTP_RELAY_USERNAME: ${SMTP_RELAY_USERNAME:-}
       SMTP_RELAY_PASSWORD: ${SMTP_RELAY_PASSWORD:-}
-      DKIM_SELECTOR: ${DKIM_SELECTOR:?set DKIM_SELECTOR}
-      DKIM_PRIVATE_KEY_FILE: /run/secrets/dkim_private_key
+      DKIM_SELECTOR: ${DKIM_SELECTOR:-mail}
     ports:
       - "${HTTP_PORT:-8080}:8080"
       - "${SMTP_PORT:-587}:587"
-    secrets:
-      - dkim_private_key
     volumes:
       - smtp_queue:/var/lib/go-smtp/queue
-
-secrets:
-  dkim_private_key:
-    file: ${DKIM_PRIVATE_KEY_FILE:?set DKIM_PRIVATE_KEY_FILE}
 
 volumes:
   smtp_queue:
