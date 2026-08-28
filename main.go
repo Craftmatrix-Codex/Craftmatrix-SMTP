@@ -33,9 +33,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if cfg.RelayHost != "" {
-		go runDeliveryWorker(queue, cfg)
-	}
+	go runDeliveryWorker(queue, cfg)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -63,7 +61,12 @@ func main() {
 	log.Fatal(s.ListenAndServe())
 }
 func runDeliveryWorker(queue *smtp.Queue, cfg smtp.Config) {
-	delivery := smtp.RelayDelivery{Host: cfg.RelayHost, Port: cfg.RelayPort, Username: cfg.RelayUsername, Password: cfg.RelayPassword}
+	var delivery smtp.Delivery
+	if cfg.RelayHost != "" {
+		delivery = smtp.RelayDelivery{Host: cfg.RelayHost, Port: cfg.RelayPort, Username: cfg.RelayUsername, Password: cfg.RelayPassword}
+	} else {
+		delivery = smtp.DirectMXDelivery{Port: 25, Timeout: cfg.DeliveryTimeout}
+	}
 	for {
 		if err := (smtp.Worker{Queue: queue, Delivery: delivery}).ProcessOnce(); err != nil {
 			time.Sleep(time.Second)
