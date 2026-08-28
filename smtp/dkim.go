@@ -11,13 +11,17 @@ import (
 	"github.com/emersion/go-msgauth/dkim"
 )
 
-type DKIMConfig struct{ Selector, Domain, PrivateKeyPath string }
+type DKIMConfig struct{ Selector, Domain, PrivateKeyPath, PrivateKey string }
 
 func loadDKIMSigner(path string) (crypto.Signer, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read DKIM private key: %w", err)
 	}
+	return parseDKIMSigner(data)
+}
+
+func parseDKIMSigner(data []byte) (crypto.Signer, error) {
 	block, _ := pem.Decode(data)
 	if block == nil {
 		return nil, fmt.Errorf("decode DKIM private key: PEM block not found")
@@ -35,13 +39,19 @@ func loadDKIMSigner(path string) (crypto.Signer, error) {
 }
 
 func signMessage(message []byte, cfg DKIMConfig) ([]byte, error) {
-	if cfg.Selector == "" && cfg.Domain == "" && cfg.PrivateKeyPath == "" {
+	if cfg.Selector == "" && cfg.Domain == "" && cfg.PrivateKeyPath == "" && cfg.PrivateKey == "" {
 		return message, nil
 	}
-	if cfg.Selector == "" || cfg.Domain == "" || cfg.PrivateKeyPath == "" {
-		return nil, fmt.Errorf("DKIM selector, domain, and private key path must all be configured")
+	if cfg.Selector == "" || cfg.Domain == "" || (cfg.PrivateKeyPath == "" && cfg.PrivateKey == "") {
+		return nil, fmt.Errorf("DKIM selector, domain, and private key must all be configured")
 	}
-	signer, err := loadDKIMSigner(cfg.PrivateKeyPath)
+	var signer crypto.Signer
+	var err error
+	if cfg.PrivateKey != "" {
+		signer, err = parseDKIMSigner([]byte(cfg.PrivateKey))
+	} else {
+		signer, err = loadDKIMSigner(cfg.PrivateKeyPath)
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -66,7 +66,7 @@ func runDeliveryWorker(queue *smtp.Queue, cfg smtp.Config) {
 	if cfg.RelayHost != "" {
 		delivery = smtp.RelayDelivery{Host: cfg.RelayHost, Port: cfg.RelayPort, Username: cfg.RelayUsername, Password: cfg.RelayPassword}
 	} else {
-		delivery = smtp.DirectMXDelivery{Port: 25, Timeout: cfg.DeliveryTimeout, Hostname: cfg.Hostname, DKIM: smtp.DKIMConfig{Selector: cfg.DKIMSelector, Domain: cfg.DKIMDomain, PrivateKeyPath: cfg.DKIMPrivateKeyPath}}
+		delivery = smtp.DirectMXDelivery{Port: 25, Timeout: cfg.DeliveryTimeout, Hostname: cfg.Hostname, DKIM: smtp.DKIMConfig{Selector: cfg.DKIMSelector, Domain: cfg.DKIMDomain, PrivateKeyPath: cfg.DKIMPrivateKeyPath, PrivateKey: cfg.DKIMPrivateKey}}
 	}
 	for {
 		if err := (smtp.Worker{Queue: queue, Delivery: delivery}).ProcessOnce(); err != nil {
