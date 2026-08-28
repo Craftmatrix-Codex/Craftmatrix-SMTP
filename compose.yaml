@@ -1,6 +1,6 @@
 services:
   go-smtp:
-    build: https://github.com/Craftmatrix-Codex/Go-Smtp.git#main
+    build: .
     restart: unless-stopped
     environment:
       HTTP_ADDR: :8080
@@ -21,6 +21,11 @@ services:
       - "${SMTP_PORT:-587}:587"
     volumes:
       - smtp_queue:/var/lib/go-smtp/queue
+    healthcheck:
+      test: ["CMD", "/go-smtp", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   smtp_queue:
