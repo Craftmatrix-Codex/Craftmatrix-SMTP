@@ -16,8 +16,9 @@ services:
       SMTP_RELAY_USERNAME: ${SMTP_RELAY_USERNAME:-}
       SMTP_RELAY_PASSWORD: ${SMTP_RELAY_PASSWORD:-}
       DKIM_SELECTOR: ${DKIM_SELECTOR:-mail}
+    expose:
+      - "8080"
     ports:
-      - "${HTTP_PORT:-8080}:8080"
       - "${SMTP_PORT:-587}:587"
     volumes:
       - smtp_queue:/tmp/go-smtp/queue
