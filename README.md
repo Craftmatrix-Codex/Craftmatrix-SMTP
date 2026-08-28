@@ -1,6 +1,69 @@
-# Go-Smtp
+# 📮 Go-Smtp
 
-A lightweight, self-hosted Go SMTP submission and outbound-delivery server.
+[![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+[![SMTP](https://img.shields.io/badge/SMTP-587%20%7C%2025-6f42c1)](https://www.rfc-editor.org/rfc/rfc5321)
+[![Security](https://img.shields.io/badge/TLS-STARTTLS-success?logo=letsencrypt&logoColor=white)](https://datatracker.ietf.org/doc/html/rfc3207)
+
+> 🛠️ A lightweight, self-hosted Go SMTP submission and direct-MX delivery server for `example.com`.
+
+| Capability | Status |
+|---|---:|
+| Authenticated SMTP submission | ✅ Ready |
+| Port 587 STARTTLS | ✅ Ready |
+| Durable outbound queue | ✅ Ready |
+| Direct MX delivery on port 25 | ✅ Ready |
+| Outbound opportunistic STARTTLS | ✅ Ready |
+| SPF and DKIM | ✅ Configured |
+| DMARC | 🟡 Recommended/configure policy |
+| Reverse DNS/PTR | ⚠️ VPS-provider controlled |
+| IMAP, POP3, webmail, inboxes | ❌ Not included |
+
+## 🧭 Contents
+
+- [✨ Features](#-features)
+- [🏗️ Architecture](#️-architecture)
+- [🌐 DNS setup](#-dns-setup-for-forgetoolssite)
+- [⚙️ Configuration](#️-configuration)
+- [🐳 Docker Compose](#-docker-compose)
+- [🚀 Coolify deployment](#-coolify-deployment)
+- [📨 SMTP clients and testing](#-smtp-client-compatibility-and-testing)
+- [📊 Deliverability](#-deliverability-checklist)
+- [🔐 Security](#-security-notes)
+- [🧪 Development](#-development-verification)
+
+## ✨ Features
+
+- 🔑 `AUTH PLAIN` and `AUTH LOGIN`
+- 🔒 STARTTLS for client submission
+- 📥 Durable filesystem queue with atomic writes
+- 🔁 Retry retention when delivery fails
+- 🌍 Recipient MX lookup and direct TCP 25 delivery
+- 🛡️ Opportunistic STARTTLS for recipient MX servers
+- ✍️ DKIM signing for direct-MX messages
+- 🧾 RFC 5322 header normalization (`Date`, `Message-ID`, and more)
+- 🩺 HTTP `/health` endpoint and container healthcheck
+- 🔧 Environment-variable configuration
+- ☁️ Docker Compose and Coolify deployment support
+
+> 💡 This is an outbound SMTP server. It does not provide IMAP, POP3, webmail, inbound mailbox storage, or user inboxes.
+
+## 🏗️ Architecture
+
+| Traffic | Port | Exposure | Purpose |
+|---|---:|---|---|
+| SMTP submission | `587` | Direct host port | Authenticated client sending |
+| Direct MX delivery | `25` | Outbound only | Server-to-server delivery |
+| HTTP health/root | `8080` | Internal container port | Coolify proxy and health checks |
+
+```text
+📧 SMTP client → smtp.example.com:587 → 📥 queue → 🌍 recipient MX:25 → 📬 mailbox
+🌐 HTTP /health:8080 → ☁️ Coolify Traefik
+```
+
+The normal Coolify HTTP proxy handles HTTP only. SMTP is not routed through the ordinary HTTP reverse proxy.
+
+## ✨ Features
 
 It accepts authenticated mail on SMTP submission port `587`, stores messages in a durable filesystem queue, and delivers directly to recipient-domain MX servers on port `25`. An optional authenticated upstream relay is also supported. The project is designed for deployment on a VPS with Docker Compose/Coolify and Cloudflare-managed DNS.
 
@@ -12,7 +75,7 @@ It accepts authenticated mail on SMTP submission port `587`, stores messages in 
 SMTP client
   │ AUTH + optional STARTTLS
   ▼
-smtp.forgetools.site:587
+smtp.example.com:587
   │
   ▼
 Go SMTP submission server
@@ -48,7 +111,7 @@ The HTTP server is separate from SMTP:
 - Container healthcheck
 - Environment-variable configuration
 
-## DNS setup for `forgetools.site`
+## 🌐 DNS setup for `example.com`
 
 Mail records must be DNS-only in Cloudflare. Do not orange-cloud SMTP records.
 
@@ -57,7 +120,7 @@ Mail records must be DNS-only in Cloudflare. Do not orange-cloud SMTP records.
 Point the SMTP hostname at the VPS public IP:
 
 ```text
-smtp.forgetools.site.  A  <YOUR_VPS_IP>
+smtp.example.com.  A  <YOUR_VPS_IP>
 ```
 
 ### SPF
@@ -65,7 +128,7 @@ smtp.forgetools.site.  A  <YOUR_VPS_IP>
 Publish one SPF record at the sending domain. Do not create multiple SPF records:
 
 ```text
-forgetools.site.  TXT  "v=spf1 ip4:<YOUR_VPS_IP> -all"
+example.com.  TXT  "v=spf1 ip4:<YOUR_VPS_IP> -all"
 ```
 
 If other services also send mail for the domain, combine them into this same SPF record instead of adding a second one.
@@ -75,7 +138,7 @@ If other services also send mail for the domain, combine them into this same SPF
 The service uses selector `mail` in the production setup. Publish the public key generated from the private key configured in Coolify:
 
 ```text
-mail._domainkey.forgetools.site.  TXT  "v=DKIM1; k=rsa; p=<base64-public-key>"
+mail._domainkey.example.com.  TXT  "v=DKIM1; k=rsa; p=<base64-public-key>"
 ```
 
 Never publish the private key. Never commit it to this repository.
@@ -85,20 +148,20 @@ Never publish the private key. Never commit it to this repository.
 Start with monitoring mode while validating delivery:
 
 ```text
-_dmarc.forgetools.site.  TXT  "v=DMARC1; p=none; rua=mailto:aspirasrenz@gmail.com"
+_dmarc.example.com.  TXT  "v=DMARC1; p=none; rua=mailto:postmaster@example.com"
 ```
 
 After SPF/DKIM alignment and reporting are confirmed, a stricter policy can be considered, for example `p=quarantine` or `p=reject`.
 
 ### MX and reverse DNS
 
-An MX record for `forgetools.site` is required only when this server is expected to receive mail for the domain. It is not required merely to send directly to Gmail or another recipient domain.
+An MX record for `example.com` is required only when this server is expected to receive mail for the domain. It is not required merely to send directly to Gmail or another recipient domain.
 
 Reverse DNS/PTR is controlled by the VPS provider, not Cloudflare. The desired setup is:
 
 ```text
-<YOUR_VPS_IP> → smtp.forgetools.site
-smtp.forgetools.site → <YOUR_VPS_IP>
+<YOUR_VPS_IP> → smtp.example.com
+smtp.example.com → <YOUR_VPS_IP>
 ```
 
 The current VPS PTR may remain provider-generated if the provider does not allow it to be changed. This can reduce sender reputation even when SPF, DKIM, and DMARC pass.
@@ -108,8 +171,8 @@ The current VPS PTR may remain provider-generated if the provider does not allow
 Required:
 
 ```text
-SMTP_HOSTNAME=smtp.forgetools.site
-SMTP_AUTH_USERNAME=noreply@forgetools.site
+SMTP_HOSTNAME=smtp.example.com
+SMTP_AUTH_USERNAME=noreply@example.com
 SMTP_AUTH_PASSWORD=<secret>
 ```
 
@@ -143,7 +206,7 @@ DKIM settings:
 
 ```text
 SMTP_DKIM_SELECTOR=mail
-SMTP_DKIM_DOMAIN=forgetools.site
+SMTP_DKIM_DOMAIN=example.com
 SMTP_DKIM_PRIVATE_KEY_PATH=
 SMTP_DKIM_PRIVATE_KEY=
 SMTP_DKIM_PRIVATE_KEY_BASE64=<single-line-base64-encoded-PEM>
@@ -204,15 +267,15 @@ This server is a standard authenticated SMTP submission server. Use a client tha
 ### Exact client settings
 
 ```text
-SMTP server:       smtp.forgetools.site
+SMTP server:       smtp.example.com
 SMTP port:         587
 Security:          STARTTLS
 Authentication:    Normal password
-Username:          noreply@forgetools.site
+Username:          noreply@example.com
 Password:          the configured Go SMTP password
 ```
 
-Use the hostname, not the IP address. The TLS certificate is issued to `smtp.forgetools.site`, so connecting to `<YOUR_VPS_IP>` causes hostname verification errors.
+Use the hostname, not the IP address. The TLS certificate is issued to `smtp.example.com`, so connecting to `<YOUR_VPS_IP>` causes hostname verification errors.
 
 Do not use port `25` for client submission. Port `25` is used by the server for direct server-to-server MX delivery. Do not select implicit SSL/TLS on port `587`; select STARTTLS.
 
@@ -222,7 +285,7 @@ The live SMTP listener must advertise:
 250-STARTTLS
 ```
 
-If a client reports an invalid certificate, update its CA bundle and ensure SNI/server name is `smtp.forgetools.site`. Do not disable certificate verification in production.
+If a client reports an invalid certificate, update its CA bundle and ensure SNI/server name is `smtp.example.com`. Do not disable certificate verification in production.
 
 ### GMass and Gmail
 
@@ -237,19 +300,19 @@ Example using Python's standard library:
 ```python
 import smtplib
 
-message = """From: noreply@forgetools.site
+message = """From: noreply@example.com
 To: recipient@example.com
 Subject: SMTP test
 
 Test message.
 """
 
-with smtplib.SMTP("smtp.forgetools.site", 587) as client:
+with smtplib.SMTP("smtp.example.com", 587) as client:
     client.ehlo()
     client.starttls()
     client.ehlo()
-    client.login("noreply@forgetools.site", "<password>")
-    client.sendmail("noreply@forgetools.site", ["recipient@example.com"], message)
+    client.login("noreply@example.com", "<password>")
+    client.sendmail("noreply@example.com", ["recipient@example.com"], message)
 ```
 
 Submission acceptance means the message entered the queue. It does not by itself prove final delivery. Check the application logs for direct-MX responses and inspect the recipient mailbox, including spam.
