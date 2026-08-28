@@ -18,11 +18,18 @@ type Message struct {
 }
 type Backend struct {
 	cfg      Config
+	queue    *Queue
 	mu       sync.RWMutex
 	messages []Message
 }
 
-func NewBackend(cfg Config) *Backend { return &Backend{cfg: cfg} }
+func NewBackend(cfg Config) *Backend {
+	b := &Backend{cfg: cfg}
+	if cfg.QueueDir != "" {
+		b.queue, _ = NewQueue(cfg.QueueDir)
+	}
+	return b
+}
 func (b *Backend) NewSession(_ *gosmtp.Conn) (gosmtp.Session, error) {
 	return NewSessionWithBackend(b), nil
 }
@@ -94,6 +101,11 @@ func (s *Session) Data(r io.Reader) error {
 	s.backend.mu.Lock()
 	s.backend.messages = append(s.backend.messages, Message{s.from, s.to, data})
 	s.backend.mu.Unlock()
+	if s.backend.queue != nil {
+		if _, err := s.backend.queue.Enqueue(Message{From: s.from, To: s.to, Data: data}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

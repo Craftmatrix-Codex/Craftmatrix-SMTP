@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/Craftmatrix-Codex/Go-Smtp/smtp"
 	gosmtp "github.com/emersion/go-smtp"
@@ -14,6 +15,16 @@ func main() {
 	cfg, err := smtp.FromEnv()
 	if err != nil {
 		log.Fatal(err)
+	}
+	if cfg.QueueDir == "" {
+		cfg.QueueDir = "/var/lib/go-smtp/queue"
+	}
+	queue, err := smtp.NewQueue(cfg.QueueDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if cfg.RelayHost != "" {
+		go runDeliveryWorker(queue, cfg)
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
@@ -36,6 +47,14 @@ func main() {
 	s.AllowInsecureAuth = tlsConfig == nil
 	log.Printf("SMTP submission listening on %s", cfg.Addr)
 	log.Fatal(s.ListenAndServe())
+}
+func runDeliveryWorker(queue *smtp.Queue, cfg smtp.Config) {
+	delivery := smtp.RelayDelivery{Host: cfg.RelayHost, Port: cfg.RelayPort, Username: cfg.RelayUsername, Password: cfg.RelayPassword}
+	for {
+		if err := (smtp.Worker{Queue: queue, Delivery: delivery}).ProcessOnce(); err != nil {
+			time.Sleep(time.Second)
+		}
+	}
 }
 func envOr(k, fallback string) string {
 	if v := os.Getenv(k); v != "" {
