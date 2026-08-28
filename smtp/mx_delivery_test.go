@@ -19,6 +19,32 @@ func (r staticMXResolver) LookupMX(string) ([]*net.MX, error) {
 	return out, nil
 }
 
+func TestNormalizeMessageAddsRequiredRFC5322Headers(t *testing.T) {
+	data, err := normalizeMessage(Message{From: "sender@example.com", To: "user@example.net", Data: []byte("Subject: hi\r\n\r\nhello\r\n")}, "smtp.example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, header := range []string{"Date:", "Message-ID:", "From: sender@example.com", "To: user@example.net", "Subject: hi"} {
+		if !strings.Contains(text, header) {
+			t.Fatalf("normalized message missing %q: %q", header, text)
+		}
+	}
+}
+
+func TestNormalizeMessagePreservesExistingHeaders(t *testing.T) {
+	data, err := normalizeMessage(Message{From: "sender@example.com", To: "user@example.net", Data: []byte("Date: Thu, 01 Jan 1970 00:00:00 +0000\r\nMessage-ID: <existing@example.com>\r\nFrom: existing@example.com\r\nTo: existing@example.net\r\nSubject: existing\r\n\r\nhello\r\n")}, "smtp.example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(string(data), "Message-ID:"); got != 1 {
+		t.Fatalf("Message-ID count = %d, want 1", got)
+	}
+	if !strings.Contains(string(data), "Subject: existing") {
+		t.Fatalf("existing headers not preserved: %q", data)
+	}
+}
+
 func TestDirectMXDeliveryResolvesMXAndSendsMessage(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
