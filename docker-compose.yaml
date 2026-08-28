@@ -2,6 +2,8 @@ services:
   go-smtp:
     build: .
     restart: unless-stopped
+    # Coolify's named volume is mounted root-owned; the queue needs write access.
+    user: "0:0"
     environment:
       HTTP_ADDR: :8080
       SMTP_HOSTNAME: ${SMTP_HOSTNAME:?set SMTP_HOSTNAME}
