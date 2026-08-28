@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"os"
 	"strings"
@@ -35,6 +36,23 @@ func TestLoadConfigReadsDKIMPrivateKey(t *testing.T) {
 	}
 	if cfg.DKIMPrivateKey != "PEM contents" {
 		t.Fatalf("DKIM private key = %q", cfg.DKIMPrivateKey)
+	}
+}
+
+func TestLoadConfigPrefersBase64DKIMPrivateKey(t *testing.T) {
+	pemKey := "-----BEGIN PRIVATE KEY-----\nYWJj\n-----END PRIVATE KEY-----\n"
+	encoded := base64.StdEncoding.EncodeToString([]byte(pemKey))
+	values := map[string]string{
+		"SMTP_HOSTNAME": "smtp.example.com", "SMTP_AUTH_USERNAME": "u", "SMTP_AUTH_PASSWORD": "p",
+		"SMTP_DKIM_PRIVATE_KEY_PATH": "/run/secrets/dkim.key", "SMTP_DKIM_PRIVATE_KEY": "PEM contents",
+		"SMTP_DKIM_PRIVATE_KEY_BASE64": encoded,
+	}
+	cfg, err := LoadConfig(func(k string) string { return values[k] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.DKIMPrivateKey != pemKey {
+		t.Fatalf("DKIM private key = %q, want decoded base64 PEM", cfg.DKIMPrivateKey)
 	}
 }
 

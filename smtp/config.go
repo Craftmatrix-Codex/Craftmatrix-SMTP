@@ -1,7 +1,9 @@
 package smtp
 
 import (
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -26,7 +28,15 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 			timeout = parsed
 		}
 	}
-	c := Config{Hostname: getenv("SMTP_HOSTNAME"), Username: getenv("SMTP_AUTH_USERNAME"), Password: getenv("SMTP_AUTH_PASSWORD"), Addr: getenv("SMTP_ADDR"), TLSCertFile: getenv("SMTP_TLS_CERT_FILE"), TLSKeyFile: getenv("SMTP_TLS_KEY_FILE"), QueueDir: getenv("SMTP_QUEUE_DIR"), RelayHost: getenv("SMTP_RELAY_HOST"), RelayUsername: getenv("SMTP_RELAY_USERNAME"), RelayPassword: getenv("SMTP_RELAY_PASSWORD"), DKIMSelector: getenv("SMTP_DKIM_SELECTOR"), DKIMDomain: getenv("SMTP_DKIM_DOMAIN"), DKIMPrivateKeyPath: getenv("SMTP_DKIM_PRIVATE_KEY_PATH"), DKIMPrivateKey: getenv("SMTP_DKIM_PRIVATE_KEY"), RelayPort: port, DeliveryTimeout: timeout}
+	privateKey := getenv("SMTP_DKIM_PRIVATE_KEY")
+	if encoded := getenv("SMTP_DKIM_PRIVATE_KEY_BASE64"); encoded != "" {
+		decoded, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			return Config{}, fmt.Errorf("decode SMTP_DKIM_PRIVATE_KEY_BASE64: %w", err)
+		}
+		privateKey = string(decoded)
+	}
+	c := Config{Hostname: getenv("SMTP_HOSTNAME"), Username: getenv("SMTP_AUTH_USERNAME"), Password: getenv("SMTP_AUTH_PASSWORD"), Addr: getenv("SMTP_ADDR"), TLSCertFile: getenv("SMTP_TLS_CERT_FILE"), TLSKeyFile: getenv("SMTP_TLS_KEY_FILE"), QueueDir: getenv("SMTP_QUEUE_DIR"), RelayHost: getenv("SMTP_RELAY_HOST"), RelayUsername: getenv("SMTP_RELAY_USERNAME"), RelayPassword: getenv("SMTP_RELAY_PASSWORD"), DKIMSelector: getenv("SMTP_DKIM_SELECTOR"), DKIMDomain: getenv("SMTP_DKIM_DOMAIN"), DKIMPrivateKeyPath: getenv("SMTP_DKIM_PRIVATE_KEY_PATH"), DKIMPrivateKey: privateKey, RelayPort: port, DeliveryTimeout: timeout}
 	if c.Hostname == "" || c.Username == "" || c.Password == "" {
 		return Config{}, errors.New("SMTP_HOSTNAME, SMTP_AUTH_USERNAME, and SMTP_AUTH_PASSWORD are required")
 	}
