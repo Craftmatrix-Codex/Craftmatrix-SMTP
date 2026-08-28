@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -69,6 +70,9 @@ func runDeliveryWorker(queue *smtp.Queue, cfg smtp.Config) {
 	}
 	for {
 		if err := (smtp.Worker{Queue: queue, Delivery: delivery}).ProcessOnce(); err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				log.Printf("outbound delivery failed: %v", err)
+			}
 			time.Sleep(time.Second)
 		}
 	}
