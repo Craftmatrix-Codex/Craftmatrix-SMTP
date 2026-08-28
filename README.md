@@ -189,7 +189,48 @@ Configure the stable HTTP hostname through Coolify's Domains setting. The SMTP h
 
 Coolify environment values should include the required SMTP credentials, `SMTP_HOSTNAME`, DKIM settings, and the base64 DKIM private key. Redeploy after changing environment variables and verify the application status is `running:healthy`.
 
-## Sending a test message
+## SMTP client compatibility and testing
+
+This server is a standard authenticated SMTP submission server. Use a client that supports custom SMTP host configuration, port `587`, STARTTLS, and normal-password authentication.
+
+### Recommended clients
+
+- **Thunderbird** — recommended for testing and daily use
+- **Apple Mail**
+- **Microsoft Outlook**
+- **Mailspring**
+- Python `smtplib` or another standard SMTP library
+
+### Exact client settings
+
+```text
+SMTP server:       smtp.forgetools.site
+SMTP port:         587
+Security:          STARTTLS
+Authentication:    Normal password
+Username:          noreply@forgetools.site
+Password:          the configured Go SMTP password
+```
+
+Use the hostname, not the IP address. The TLS certificate is issued to `smtp.forgetools.site`, so connecting to `<YOUR_VPS_IP>` causes hostname verification errors.
+
+Do not use port `25` for client submission. Port `25` is used by the server for direct server-to-server MX delivery. Do not select implicit SSL/TLS on port `587`; select STARTTLS.
+
+The live SMTP listener must advertise:
+
+```text
+250-STARTTLS
+```
+
+If a client reports an invalid certificate, update its CA bundle and ensure SNI/server name is `smtp.forgetools.site`. Do not disable certificate verification in production.
+
+### GMass and Gmail
+
+GMass is primarily a Gmail/Google Workspace extension and is not a general-purpose SMTP test client. It normally sends through the connected Gmail account or Google sending infrastructure rather than allowing arbitrary SMTP-server testing. Keep GMass connected to Gmail for GMass campaigns, and use Thunderbird or another standard SMTP client to test this server.
+
+Gmail's **Send mail as** feature may support an external SMTP server, but Gmail requires verification of the sender address. Because this project is outbound-only and does not provide an inbound mailbox, Gmail may not be able to receive that verification code through this server. This is separate from SMTP authentication and does not indicate that port `587` is broken.
+
+### Sending a test message
 
 Example using Python's standard library:
 
