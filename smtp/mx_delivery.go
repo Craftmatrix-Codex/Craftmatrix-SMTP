@@ -29,6 +29,7 @@ type DirectMXDelivery struct {
 	Timeout  time.Duration
 	From     string
 	Hostname string
+	DKIM     DKIMConfig
 }
 
 func normalizeMessage(m Message, hostname string) ([]byte, error) {
@@ -119,6 +120,10 @@ func (d DirectMXDelivery) Deliver(m Message) error {
 		from = d.From
 	}
 	messageData, err := normalizeMessage(m, d.Hostname)
+	if err != nil {
+		return err
+	}
+	messageData, err = signMessage(messageData, d.DKIM)
 	if err != nil {
 		return err
 	}

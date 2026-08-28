@@ -6,7 +6,7 @@ A Go-based SMTP submission service with AUTH PLAIN/LOGIN, optional STARTTLS, dur
 
 Required: `SMTP_HOSTNAME`, `SMTP_AUTH_USERNAME`, and `SMTP_AUTH_PASSWORD`. Optional: `SMTP_ADDR` (default `:587`), `HTTP_ADDR` (default `:8080`), and `SMTP_TLS_CERT_FILE`/`SMTP_TLS_KEY_FILE`. When both TLS files are configured, the server advertises STARTTLS; authentication is otherwise allowed in cleartext for local development.
 
-Accepted messages are durably written to `SMTP_QUEUE_DIR` (default `/var/lib/go-smtp/queue`). If `SMTP_RELAY_HOST` is set, messages use that relay and `SMTP_RELAY_PORT` (default 587). Otherwise the worker resolves recipient MX records and delivers directly to port 25. `SMTP_DELIVERY_TIMEOUT` (default `30s`) controls MX connection and SMTP command deadlines. Failed deliveries remain queued with incremented retry attempts. DKIM signing remains a prerequisite for production deliverability and is not yet implemented.
+Accepted messages are durably written to `SMTP_QUEUE_DIR` (default `/var/lib/go-smtp/queue`). If `SMTP_RELAY_HOST` is set, messages use that relay and `SMTP_RELAY_PORT` (default 587). Otherwise the worker resolves recipient MX records and delivers directly to port 25. `SMTP_DELIVERY_TIMEOUT` (default `30s`) controls MX connection and SMTP command deadlines. Failed deliveries remain queued with incremented retry attempts. Direct delivery signs messages with DKIM when `SMTP_DKIM_SELECTOR`, `SMTP_DKIM_DOMAIN`, and `SMTP_DKIM_PRIVATE_KEY_PATH` are all set. The private key is read from the external path and must not be committed.
 
 ## Local
 
