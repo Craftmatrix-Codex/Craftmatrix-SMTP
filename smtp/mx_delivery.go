@@ -3,6 +3,7 @@ package smtp
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -30,6 +31,9 @@ type DirectMXDelivery struct {
 	From     string
 	Hostname string
 	DKIM     DKIMConfig
+	// TLSConfig overrides trust settings for tests or deployments with custom CAs.
+	TLSConfig  *tls.Config
+	RequireTLS bool
 }
 
 func normalizeMessage(m Message, hostname string) ([]byte, error) {
@@ -137,6 +141,21 @@ func (d DirectMXDelivery) Deliver(m Message) error {
 		}
 		_ = conn.SetDeadline(time.Now().Add(d.Timeout))
 		client, clientErr := smtp.NewClient(conn, host)
+		if clientErr == nil {
+			tlsConfig := tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}
+			if d.TLSConfig != nil {
+				tlsConfig = *d.TLSConfig.Clone()
+				tlsConfig.ServerName = host
+				if tlsConfig.MinVersion < tls.VersionTLS12 {
+					tlsConfig.MinVersion = tls.VersionTLS12
+				}
+			}
+			if ok, _ := client.Extension("STARTTLS"); ok {
+				clientErr = client.StartTLS(&tlsConfig)
+			} else if d.RequireTLS {
+				clientErr = errors.New("server does not advertise STARTTLS")
+			}
+		}
 		if clientErr == nil {
 			clientErr = client.Mail(from)
 			if clientErr == nil {
