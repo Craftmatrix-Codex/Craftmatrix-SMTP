@@ -239,7 +239,7 @@ The queue is stored in the named `smtp_queue` volume and survives container rest
 
 Use a Git-backed Docker Compose application:
 
-- Repository: `https://github.com/Craftmatrix-Codex/Go-Smtp`
+- Repository: `https://github.com/Craftmatrix-Codex/Craftmatrix-SMTP`
 - Branch: `main`
 - Compose file: `docker-compose.yaml`
 - Internal HTTP port: `8080`
