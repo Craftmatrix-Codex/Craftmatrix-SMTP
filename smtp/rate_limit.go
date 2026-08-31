@@ -5,53 +5,47 @@ import (
 	"time"
 )
 
-// RateLimiter is a token bucket for outbound delivery attempts.
+// RateLimiter spaces deliveries evenly across the configured minute.
 type RateLimiter struct {
-	mu         sync.Mutex
-	tokens     float64
-	capacity   float64
-	refill     float64
-	lastRefill time.Time
+	mu          sync.Mutex
+	interval    time.Duration
+	nextAllowed time.Time
 }
 
 func NewRateLimiter(perMinute int) *RateLimiter {
 	if perMinute < 1 {
 		perMinute = 1
 	}
-	return &RateLimiter{
-		tokens:   float64(perMinute),
-		capacity: float64(perMinute),
-		refill:   float64(perMinute) / 60,
-	}
+	return &RateLimiter{interval: time.Minute / time.Duration(perMinute)}
 }
 
 func (r *RateLimiter) Allow(now time.Time) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.lastRefill.IsZero() {
-		r.lastRefill = now
-	} else {
-		elapsed := now.Sub(r.lastRefill).Seconds()
-		if elapsed > 0 {
-			r.tokens += elapsed * r.refill
-			if r.tokens > r.capacity {
-				r.tokens = r.capacity
-			}
-			r.lastRefill = now
-		}
-	}
-	if r.tokens < 1 {
+	if !r.nextAllowed.IsZero() && now.Before(r.nextAllowed) {
 		return false
 	}
-	r.tokens--
+	r.nextAllowed = now.Add(r.interval)
 	return true
+}
+
+func (r *RateLimiter) NextAvailable(now time.Time) time.Time {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.nextAllowed.IsZero() || !now.Before(r.nextAllowed) {
+		return now
+	}
+	return r.nextAllowed
 }
 
 func (r *RateLimiter) Wait() {
 	for {
-		if r.Allow(time.Now()) {
+		now := time.Now()
+		if r.Allow(now) {
 			return
 		}
-		time.Sleep(100 * time.Millisecond)
+		if delay := time.Until(r.NextAvailable(time.Now())); delay > 0 {
+			time.Sleep(delay)
+		}
 	}
 }

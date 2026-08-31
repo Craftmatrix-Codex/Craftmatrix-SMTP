@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestQueueEnqueueAndDequeuePersistsMessage(t *testing.T) {
@@ -50,6 +51,29 @@ func TestWorkerRetriesFailedDelivery(t *testing.T) {
 	}
 	if _, err := queue.Dequeue(); err != nil {
 		t.Fatalf("message was not retained for retry: %v", err)
+	}
+}
+
+func TestQueueDoesNotReturnRetryBeforeDue(t *testing.T) {
+	queue, err := NewQueue(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = queue.Enqueue(Message{From: "from@example.com", To: "to@example.com", Data: []byte("body")}); err != nil {
+		t.Fatal(err)
+	}
+	item, err := queue.Dequeue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := queue.Retry(item); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := queue.DequeueReady(time.Now()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("retry was returned before due time: %v", err)
+	}
+	if _, err := queue.DequeueReady(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatalf("retry was not returned after due time: %v", err)
 	}
 }
 

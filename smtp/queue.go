@@ -48,6 +48,14 @@ func (q *Queue) Enqueue(m Message) (string, error) {
 	return id, nil
 }
 func (q *Queue) Dequeue() (queuedMessage, error) {
+	return q.dequeue(time.Time{}, false)
+}
+
+func (q *Queue) DequeueReady(now time.Time) (queuedMessage, error) {
+	return q.dequeue(now, true)
+}
+
+func (q *Queue) dequeue(now time.Time, onlyReady bool) (queuedMessage, error) {
 	entries, err := os.ReadDir(q.dir)
 	if err != nil {
 		return queuedMessage{}, err
@@ -62,24 +70,41 @@ func (q *Queue) Dequeue() (queuedMessage, error) {
 	if len(names) == 0 {
 		return queuedMessage{}, os.ErrNotExist
 	}
-	data, err := os.ReadFile(filepath.Join(q.dir, names[0]))
-	if err != nil {
-		return queuedMessage{}, err
+	for _, name := range names {
+		data, err := os.ReadFile(filepath.Join(q.dir, name))
+		if err != nil {
+			return queuedMessage{}, err
+		}
+		var item queuedMessage
+		if err := json.Unmarshal(data, &item); err != nil {
+			return queuedMessage{}, err
+		}
+		if onlyReady && !item.NextAttempt.IsZero() && item.NextAttempt.After(now) {
+			continue
+		}
+		return item, nil
 	}
-	var item queuedMessage
-	err = json.Unmarshal(data, &item)
-	return item, err
+	return queuedMessage{}, os.ErrNotExist
 }
 func (q *Queue) Ack(item queuedMessage) error {
 	return os.Remove(filepath.Join(q.dir, item.ID+".json"))
 }
 func (q *Queue) Retry(item queuedMessage) error {
 	item.Attempts++
+	backoff := time.Duration(1<<min(item.Attempts-1, 9)) * time.Second
+	item.NextAttempt = time.Now().Add(backoff)
 	data, err := json.Marshal(item)
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(filepath.Join(q.dir, item.ID+".json"), data, 0600)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 type Worker struct {
@@ -89,7 +114,7 @@ type Worker struct {
 }
 
 func (w Worker) ProcessOnce() error {
-	item, err := w.Queue.Dequeue()
+	item, err := w.Queue.DequeueReady(time.Now())
 	if err != nil {
 		return err
 	}
