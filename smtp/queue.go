@@ -85,12 +85,16 @@ func (q *Queue) Retry(item queuedMessage) error {
 type Worker struct {
 	Queue    *Queue
 	Delivery Delivery
+	Limiter  *RateLimiter
 }
 
 func (w Worker) ProcessOnce() error {
 	item, err := w.Queue.Dequeue()
 	if err != nil {
 		return err
+	}
+	if w.Limiter != nil {
+		w.Limiter.Wait()
 	}
 	if err = w.Delivery.Deliver(item.Message); err != nil {
 		_ = w.Queue.Retry(item)

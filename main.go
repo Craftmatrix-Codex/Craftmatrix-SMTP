@@ -68,8 +68,9 @@ func runDeliveryWorker(queue *smtp.Queue, cfg smtp.Config) {
 	} else {
 		delivery = smtp.DirectMXDelivery{Port: 25, Timeout: cfg.DeliveryTimeout, Hostname: cfg.Hostname, RequireTLS: cfg.RequireTLS, DKIM: smtp.DKIMConfig{Selector: cfg.DKIMSelector, Domain: cfg.DKIMDomain, PrivateKeyPath: cfg.DKIMPrivateKeyPath, PrivateKey: cfg.DKIMPrivateKey}}
 	}
+	limiter := smtp.NewRateLimiter(cfg.RateLimitPerMinute)
 	for {
-		if err := (smtp.Worker{Queue: queue, Delivery: delivery}).ProcessOnce(); err != nil {
+		if err := (smtp.Worker{Queue: queue, Delivery: delivery, Limiter: limiter}).ProcessOnce(); err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
 				log.Printf("outbound delivery failed: %v", err)
 			}
