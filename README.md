@@ -37,7 +37,8 @@
 - 🔑 `AUTH PLAIN` and `AUTH LOGIN`
 - 🔒 STARTTLS for client submission
 - 📥 Durable filesystem queue with atomic writes
-- 🔁 Retry retention when delivery fails
+- 🔁 Retry retention when delivery fails, with exponential backoff
+- ⏱️ Evenly paced outbound delivery with a configurable per-minute limit
 - 🌍 Recipient MX lookup and direct TCP 25 delivery
 - 🛡️ Opportunistic STARTTLS for recipient MX servers
 - ✍️ DKIM signing for direct-MX messages
